@@ -10,11 +10,12 @@ const axiosInstance = axios.create({
 });
 
 export default {
-    async get(endpoint, params = {}) {
+    async get(endpoint: string, params = {}) {
         try {
             const response = await axiosInstance.get(endpoint, { params });
             return response.data;
         } catch (error) {
+            console.error(error)
             throw error;
         }
     },

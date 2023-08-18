@@ -1,13 +1,13 @@
 <template>
   <div>
     <b-table hover :fields="tableFields" :items="cryptoList">
-      <template #cell(logo)="data">
-          <img :src="data.value" alt="crypto currency logo" width="50" />
+      <template #cell(logo)="{ value }">
+        <img :src="value?.toString()" alt="crypto currency logo" width="50" />
       </template>
-      <template #cell(percentChange24)="data">
-        <i v-if="data.value > 0" class="bi bi-arrow-up arrow-up"  ></i>
-        <i v-if="data.value < 0" class="bi bi-arrow-down arrow-down"  ></i>
-        <span>{{formatPercentage(data.value)}}</span>
+      <template #cell(percentChange24)="{ value }">
+        <i v-if="typeof value === 'number' && value > 0" class="bi bi-arrow-up arrow-up"></i>
+        <i v-if="typeof value === 'number' && value < 0" class="bi bi-arrow-down arrow-down"></i>
+        <span>{{ formatNumber(value, NumberTypes.Percentage) }}</span>
       </template>
     </b-table>
     <div v-if="isLoading" class="d-flex justify-content-center">
@@ -16,97 +16,96 @@
   </div>
 </template>
 
-<script>
+<script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+
 import apiService from '@/services/apiService'
-import { formatCurrency, formatNumber, formatPercentage, generateTableData } from '@/helpers'
+import { formatNumber, generateTableData } from '@/helpers'
 import { ITEMS_PER_PAGE } from '@/constants'
+import type { CryptoInfoResponse, CryptoListResponse, Logo, TableDataItem } from '@/types'
+import { NumberTypes } from '@/types'
+import type { TableField } from 'bootstrap-vue-next'
 
-export default {
-  data() {
-    return {
-      cryptoList: [],
-      isLoading: false,
-      start: 1,
-      tableFields: [
-        { key: 'logo', label: '' },
-        { key: 'name', label: 'Crypto', class: 'align-middle' },
-        {
-          key: 'price',
-          label: 'Price',
-          formatter: formatCurrency,
-          class: 'd-none d-sm-table-cell text-right align-middle'
-        },
-        {
-          key: 'volumeChange24',
-          label: 'Volume 24 h',
-          formatter: formatNumber,
-          class: 'd-none d-sm-table-cell text-right align-middle'
-        },
-        {
-          key: 'percentChange24',
-          label: 'Change',
-          class: 'align-middle'
-        }
-      ]
-    }
-  },
-  async created() {
-    await this.fetchListData()
-    this.setupScrollListener()
-  },
-  methods: {
-    formatPercentage,
-    async fetchLogo(ids) {
-      let logos = []
-      try {
-        const fetchedData = await apiService
-          .get('v2/cryptocurrency/info', { id: ids })
-          .then((res) => res.data)
-        const data = Object.values(fetchedData)
-        logos = data.map((item) => ({
-          logo: item.logo,
-          id: item.id
-        }))
-      } catch (error) {
-        console.error(error)
-      }
-      return logos
-    },
-    async fetchListData() {
-      try {
-        this.isLoading = true
-        const newData = await apiService.get('v1/cryptocurrency/listings/latest', {
-          limit: ITEMS_PER_PAGE,
-          start: this.start
-        })
-        const newDataIds = newData.data.map((item) => item.id).join(',')
-        const newDataLogos = await this.fetchLogo(newDataIds)
-        const newGeneratedData = generateTableData(newData.data, newDataLogos)
+let isLoading = ref<boolean>(false)
+let queryStart = ref<number>(1)
+let cryptoList = ref<TableDataItem[]>([])
 
-        this.cryptoList = [...this.cryptoList, ...newGeneratedData]
-        this.start = this.start + ITEMS_PER_PAGE
-      } catch (error) {
-        console.error(error)
-      } finally {
-        this.isLoading = false
-      }
-    },
-    setupScrollListener() {
-      window.addEventListener('scroll', this.handleScroll)
-    },
-    handleScroll() {
-      if (
-        Math.ceil(window.innerHeight + window.scrollY) >= document.body.offsetHeight &&
-        !this.isLoading
-      ) {
-        this.fetchListData()
-      }
-    }
+const tableFields: TableField[] = [
+  { key: 'logo', label: '' },
+  { key: 'name', label: 'Crypto', class: 'align-middle' },
+  {
+    key: 'price',
+    label: 'Price',
+    formatter: (value) => formatNumber(value, NumberTypes.UsdCurrency),
+    class: 'd-none d-sm-table-cell text-right align-middle'
   },
-  beforeUnmount() {
-    window.removeEventListener('scroll', this.handleScroll)
+  {
+    key: 'volumeChange24',
+    label: 'Volume 24 h',
+    formatter: (value) => formatNumber(value, NumberTypes.Plain),
+    class: 'd-none d-sm-table-cell text-right align-middle'
+  },
+  {
+    key: 'percentChange24',
+    label: 'Change',
+    class: 'align-middle'
+  }
+]
+
+onMounted(async () => {
+  await fetchListData()
+  setupScrollListener()
+})
+
+const fetchLogo = async (ids: string) => {
+  let logos: Logo[] = []
+  try {
+    const fetchedData: CryptoInfoResponse = await apiService
+      .get('v2/cryptocurrency/info', { id: ids })
+      .then((res) => res.data)
+    const data = Object.values(fetchedData)
+
+    logos = data.map((item) => ({
+      logo: item.logo,
+      id: item.id
+    }))
+  } catch (error) {
+    console.error(error)
+  }
+  return logos
+}
+const fetchListData = async () => {
+  try {
+    isLoading.value = true
+    const newData: CryptoListResponse = await apiService.get('v1/cryptocurrency/listings/latest', {
+      limit: ITEMS_PER_PAGE,
+      start: queryStart.value
+    })
+    const newDataIds = newData.data.map((item) => item.id).join(',')
+    const newDataLogos = await fetchLogo(newDataIds)
+    const newGeneratedData: TableDataItem[] = generateTableData(newData.data, newDataLogos)
+
+    cryptoList.value = [...cryptoList.value, ...newGeneratedData]
+    queryStart.value = queryStart.value + ITEMS_PER_PAGE
+  } catch (error) {
+    console.error(error)
+  } finally {
+    isLoading.value = false
   }
 }
+const setupScrollListener = () => {
+  window.addEventListener('scroll', handleScroll)
+}
+const handleScroll = () => {
+  if (
+    Math.ceil(window.innerHeight + window.scrollY) >= document.body.offsetHeight &&
+    !isLoading.value
+  ) {
+    fetchListData()
+  }
+}
+
+onBeforeUnmount(() => window.removeEventListener('scroll', handleScroll))
 </script>
 
 <style>

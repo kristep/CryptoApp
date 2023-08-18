@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import {formatCurrency, formatNumber, formatPercentage, generateTableData} from '../../helpers'
+import { formatNumber, generateTableData } from '../../helpers'
+import { NumberTypes } from '../../types'
 
 describe('helper methods', () => {
   it('generatedData - should generate data for the table', () => {
@@ -20,7 +21,7 @@ describe('helper methods', () => {
           USD: {
             fully_diluted_market_cap: 655272184172.66,
             last_updated: '2023-08-18T05:48:00.000Z',
-            market_cap: 614570891721.99896,
+            market_cap: 6145708921.99896,
             market_cap_dominance: 68.6085,
             percent_change_1h: 0.77854554,
             percent_change_7d: -11.03479407,
@@ -64,7 +65,7 @@ describe('helper methods', () => {
           USD: {
             fully_diluted_market_cap: 555272184172.66,
             last_updated: '2023-08-18T05:48:00.000Z',
-            market_cap: 514570891721.99896,
+            market_cap: 5145708721.99896,
             market_cap_dominance: 48.6085,
             percent_change_1h: 0.67854554,
             percent_change_7d: -10.03479407,
@@ -94,7 +95,10 @@ describe('helper methods', () => {
         tvl_ratio: null
       }
     ]
-    const logos = [{id: 1, logo: 'path/to/logo/1.png'}, {id: 2, logo: 'path/to/logo/2.png'}]
+    const logos = [
+      { id: 1, logo: 'path/to/logo/1.png' },
+      { id: 2, logo: 'path/to/logo/2.png' }
+    ]
 
     const generatedData = generateTableData(data, logos)
     expect(generatedData).toStrictEqual([
@@ -115,20 +119,25 @@ describe('helper methods', () => {
     ])
   })
 
-
-  it('formatPercentage', () => {
-    expect(formatPercentage(-7.58855243)).toBe('-8%')
-    expect(formatPercentage(7.158855243)).toBe('7%')
-    expect(formatPercentage(0)).toBe('0%')
+  it('formatNumber - formats number to percentage format', () => {
+    expect(formatNumber(-7.58855243, NumberTypes.Percentage)).toBe('-8%')
+    expect(formatNumber(7.158855243, NumberTypes.Percentage)).toBe('7%')
+    expect(formatNumber(0, NumberTypes.Percentage)).toBe('0%')
+    expect(formatNumber('1', NumberTypes.Percentage)).toBe('')
+    expect(formatNumber(undefined, NumberTypes.Percentage)).toBe('')
   })
 
-  it('formatNumber', () => {
-    expect(formatNumber(-7.58855243)).toBe('-7.5886')
-    expect(formatNumber(7.158855243)).toBe('7.1589')
+  it('formatNumber - formats number in plain format', () => {
+    expect(formatNumber(-7.58855243, NumberTypes.Plain)).toBe('-7.5886')
+    expect(formatNumber(7.158855243, NumberTypes.Plain)).toBe('7.1589')
+    expect(formatNumber('1', NumberTypes.Plain)).toBe('')
+    expect(formatNumber(undefined, NumberTypes.Plain)).toBe('')
   })
 
-  it('formatCurrency', () => {
-    expect(formatCurrency(-7.58855243)).toBe('-7.5886 USD')
-    expect(formatCurrency(7.158855243)).toBe('7.1589 USD')
+  it('formatNumber - formats number in USD currency format', () => {
+    expect(formatNumber(-7.58855243, NumberTypes.UsdCurrency)).toBe('-7.5886 USD')
+    expect(formatNumber(7.158855243, NumberTypes.UsdCurrency)).toBe('7.1589 USD')
+    expect(formatNumber('1', NumberTypes.UsdCurrency)).toBe('')
+    expect(formatNumber(undefined, NumberTypes.UsdCurrency)).toBe('')
   })
 })
