@@ -1,6 +1,15 @@
 <template>
   <div>
-    <b-table hover :fields="tableFields" :items="cryptoList"></b-table>
+    <b-table hover :fields="tableFields" :items="cryptoList">
+      <template #cell(logo)="data">
+          <img :src="data.value" alt="crypto currency logo" width="50" />
+      </template>
+      <template #cell(percentChange24)="data">
+        <i v-if="data.value > 0" class="bi bi-arrow-up arrow-up"  ></i>
+        <i v-if="data.value < 0" class="bi bi-arrow-down arrow-down"  ></i>
+        <span>{{formatPercentage(data.value)}}</span>
+      </template>
+    </b-table>
     <div v-if="isLoading" class="d-flex justify-content-center">
       <div class="spinner-border" role="status"></div>
     </div>
@@ -9,6 +18,8 @@
 
 <script>
 import apiService from '@/services/apiService'
+import { formatCurrency, formatNumber, formatPercentage, generateTableData } from '@/helpers'
+import { ITEMS_PER_PAGE } from '@/constants'
 
 export default {
   data() {
@@ -17,20 +28,25 @@ export default {
       isLoading: false,
       start: 1,
       tableFields: [
-        { key: 'name', label: 'Crypto' },
+        { key: 'logo', label: '' },
+        { key: 'name', label: 'Crypto', class: 'align-middle' },
         {
           key: 'price',
           label: 'Price',
-          formatter: (value) => `${value.toFixed(4)} USD`,
-          class: 'd-none d-sm-table-cell text-right'
+          formatter: formatCurrency,
+          class: 'd-none d-sm-table-cell text-right align-middle'
         },
         {
           key: 'volumeChange24',
           label: 'Volume 24 h',
-          formatter: (value) => value.toFixed(4),
-          class: 'd-none d-sm-table-cell text-right'
+          formatter: formatNumber,
+          class: 'd-none d-sm-table-cell text-right align-middle'
         },
-        { key: 'percentChange24', label: 'Change', formatter: (value) => `${Math.round(value)} %` }
+        {
+          key: 'percentChange24',
+          label: 'Change',
+          class: 'align-middle'
+        }
       ]
     }
   },
@@ -39,22 +55,36 @@ export default {
     this.setupScrollListener()
   },
   methods: {
+    formatPercentage,
+    async fetchLogo(ids) {
+      let logos = []
+      try {
+        const fetchedData = await apiService
+          .get('v2/cryptocurrency/info', { id: ids })
+          .then((res) => res.data)
+        const data = Object.values(fetchedData)
+        logos = data.map((item) => ({
+          logo: item.logo,
+          id: item.id
+        }))
+      } catch (error) {
+        console.error(error)
+      }
+      return logos
+    },
     async fetchListData() {
       try {
         this.isLoading = true
         const newData = await apiService.get('v1/cryptocurrency/listings/latest', {
-          limit: 20,
+          limit: ITEMS_PER_PAGE,
           start: this.start
         })
-        const newFormattedData = newData.data.map((item) => ({
-          name: item.name,
-          price: item.quote.USD.price,
-          percentChange24: item.quote.USD.percent_change_24h,
-          volumeChange24: item.quote.USD.volume_change_24h
-        }))
-        console.log(newFormattedData)
-        this.cryptoList = [...this.cryptoList, ...newFormattedData]
-        this.start = this.start + 20
+        const newDataIds = newData.data.map((item) => item.id).join(',')
+        const newDataLogos = await this.fetchLogo(newDataIds)
+        const newGeneratedData = generateTableData(newData.data, newDataLogos)
+
+        this.cryptoList = [...this.cryptoList, ...newGeneratedData]
+        this.start = this.start + ITEMS_PER_PAGE
       } catch (error) {
         console.error(error)
       } finally {
@@ -80,7 +110,10 @@ export default {
 </script>
 
 <style>
-td {
-  padding: 16px 8px !important;
+.arrow-up {
+  color: green;
+}
+.arrow-down {
+  color: red;
 }
 </style>
