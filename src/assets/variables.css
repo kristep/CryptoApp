@@ -1,4 +1,6 @@
 :root {
     --primary-color: #E4A03E;
-    --background-main: #FFFFFF
+    --background-main: #FFFFFF;
+    --danger-color: #eb1416;
+    --success-color: #178823
 }

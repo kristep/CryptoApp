@@ -109,10 +109,12 @@ onBeforeUnmount(() => window.removeEventListener('scroll', handleScroll))
 </script>
 
 <style>
+@import 'src/assets/variables.css';
+
 .arrow-up {
-  color: green;
+  color: var(--success-color);
 }
 .arrow-down {
-  color: red;
+  color: var(--danger-color);
 }
 </style>
